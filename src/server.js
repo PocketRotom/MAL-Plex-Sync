@@ -219,7 +219,7 @@ app.post('/resolve/:id', async (req, res) => {
   await setCachedIds(pending.cacheKey, cached);
   await deletePending(pending.id);
 
-  const label = pending.year ? `${pending.title} (${pending.year})` : pending.title;
+  const label = pending.title;
   console.log(`[resolve] manually resolved "${label}" → MAL id ${malId}`);
 
   // Apply the pending episode update now that we have a MAL ID
