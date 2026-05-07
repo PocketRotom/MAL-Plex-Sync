@@ -462,9 +462,10 @@ app.get('/status', async (req, res) => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
-  console.log(`\n  MALSync Plex Bridge running on http://localhost:${PORT}`);
-  console.log(`  POST http://localhost:${PORT}/webhook/plex  ← configure this in Plex`);
-  console.log(`  GET  http://localhost:${PORT}/status`);
-  console.log(`  GET  http://localhost:${PORT}/                 ← view cached matches and unresolved entries`);
-  console.log(`  GET  http://localhost:${PORT}/auth/mal      ← run once to authenticate\n`);
+  const baseUrl = process.env.BASE_URL ?? `http://localhost:${PORT}`;
+  console.log(`\n  MALSync Plex Bridge running on ${baseUrl}`);
+  console.log(`  POST ${baseUrl}/webhook/plex  ← configure this in Plex`);
+  console.log(`  GET  ${baseUrl}/status`);
+  console.log(`  GET  ${baseUrl}/                 ← view cached matches and unresolved entries`);
+  console.log(`  GET  ${baseUrl}/auth/mal      ← run once to authenticate\n`);
 });
