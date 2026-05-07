@@ -17,7 +17,7 @@ import express from 'express';
 import multer from 'multer';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
-import { handlePlexWebhook } from './plexHandler.js';
+import { handlePlexWebhook, applyMalUpdate } from './plexHandler.js';
 import { getAnimeEntry as malGetEntry } from './mal.js';
 import { getTokens, setTokens, getAllCache, deleteCachedIds, getPending, deletePending, setCachedIds, getAllPending } from './storage.js';
 
@@ -215,13 +215,26 @@ app.post('/resolve/:id', async (req, res) => {
     if (entry?.title) malName = entry.title;
   } catch { /* non-fatal, fallback to MAL #id */ }
 
-  await setCachedIds(pending.cacheKey, { malId, malName, plexTitle: pending.title, year: pending.year, cachedAt: Date.now() });
+  const cached = { malId, malName, plexTitle: pending.title, year: pending.year, cachedAt: Date.now() };
+  await setCachedIds(pending.cacheKey, cached);
   await deletePending(pending.id);
 
   const label = pending.year ? `${pending.title} (${pending.year})` : pending.title;
   console.log(`[resolve] manually resolved "${label}" → MAL id ${malId}`);
 
-  if (isJson) return res.json({ ok: true, malId, malName });
+  // Apply the pending episode update now that we have a MAL ID
+  let malResult = null;
+  if (pending.episode) {
+    malResult = await applyMalUpdate(malId, pending.episode, cached);
+  }
+
+  if (isJson) return res.json({ ok: true, malId, malName, mal: malResult });
+
+  const episodeNote = malResult && !malResult.skipped && !malResult.error
+    ? `<p>Episode <strong>${pending.episode}</strong> has been synced to MAL.</p>`
+    : malResult?.skipped
+      ? `<p>Episode ${pending.episode} was already recorded on MAL — no update needed.</p>`
+      : '';
 
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -233,7 +246,8 @@ app.post('/resolve/:id', async (req, res) => {
 <body>
   <h2>✅ Resolved</h2>
   <p><strong>${label}</strong> mapped to <a href="https://myanimelist.net/anime/${malId}" target="_blank">MAL #${malId}</a>.</p>
-  <p>Future scrobbles will use this mapping. The episode counter will be updated automatically on next scrobble.</p>
+  ${episodeNote}
+  <p><a href="/">&larr; Back to matches</a></p>
 </body>
 </html>`);
 });

@@ -146,6 +146,34 @@ async function notifyResolved({ seriesTitle, plexTitle, year, malId, malName, im
   }
 }
 
+// ─── Discord notification for completed anime ─────────────────────────────────
+
+async function notifyCompleted({ malId, malName, imageUrl, plexTitle }) {
+  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+  if (!webhookUrl) return;
+
+  const malUrl = `https://myanimelist.net/anime/${malId}`;
+  const label = malName ?? plexTitle ?? `MAL #${malId}`;
+
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        embeds: [{
+          title: `🎉 Completed: ${label}`,
+          description: `You finished **[${label}](${malUrl})**! Don't forget to rate it on MAL.\n\n[Rate on MAL →](${malUrl})`,
+          color: 0x57f287,
+          thumbnail: imageUrl ? { url: imageUrl } : undefined,
+        }],
+      }),
+    });
+    console.log(`[discord] completion notified for MAL #${malId}`);
+  } catch (err) {
+    console.error('[discord] notifyCompleted failed:', err.message);
+  }
+}
+
 // ─── Discord notification for unresolved titles ───────────────────────────────
 
 async function notifyUnresolved({ seriesTitle, rawTitle, year, episodeNumber }) {
@@ -240,21 +268,45 @@ export async function handlePlexWebhook(req, res) {
   const results = {};
 
   // ── Update MAL ──────────────────────────────────────────────────────────────
+  const cached = await getCachedIds(normalise(seriesTitle) + (year ? `_${year}` : ''));
+  results.mal = await applyMalUpdate(malId, episodeNumber, cached);
+
+  return res.json({ title: seriesTitle, episode: episodeNumber, results });
+}
+
+// ─── Shared MAL update logic (used by webhook and manual resolve) ─────────────
+
+export async function applyMalUpdate(malId, episodeNumber, cached) {
   try {
     const entry = await malGetEntry(malId);
     const currentEp = entry?.my_list_status?.num_watched_episodes ?? 0;
+    const currentStatus = entry?.my_list_status?.status ?? null;
+    const totalEp = entry?.num_episodes ?? 0;
+
     if (episodeNumber <= currentEp) {
       console.log(`[MAL] skipping anime/${malId}: already at ep ${currentEp}, got ep ${episodeNumber}`);
-      results.mal = { id: malId, skipped: true, currentEpisode: currentEp, incomingEpisode: episodeNumber };
-    } else {
-      const updated = await malUpdate(malId, { episode: episodeNumber });
-      results.mal = { id: malId, episode: episodeNumber, response: updated };
-      console.log(`[MAL] updated anime/${malId}: ep ${currentEp} → ep ${episodeNumber}`);
+      return { id: malId, skipped: true, currentEpisode: currentEp, incomingEpisode: episodeNumber };
     }
+
+    const isLastEp = totalEp > 0 && episodeNumber >= totalEp;
+    let newStatus = null;
+
+    if (isLastEp) {
+      newStatus = 'completed';
+    } else if (currentStatus === 'plan_to_watch' || currentStatus === null) {
+      newStatus = 'watching';
+    }
+
+    const updated = await malUpdate(malId, { episode: episodeNumber, status: newStatus });
+    console.log(`[MAL] updated anime/${malId}: ep ${currentEp} → ep ${episodeNumber}${newStatus ? ` (status: ${newStatus})` : ''}`);
+
+    if (isLastEp) {
+      await notifyCompleted({ malId, malName: cached?.malName, imageUrl: cached?.imageUrl, plexTitle: cached?.plexTitle });
+    }
+
+    return { id: malId, episode: episodeNumber, status: newStatus, response: updated };
   } catch (err) {
     console.error('[MAL] update failed:', err.message);
-    results.mal = { error: err.message };
+    return { error: err.message };
   }
-
-  return res.json({ title: seriesTitle, episode: episodeNumber, results });
 }
