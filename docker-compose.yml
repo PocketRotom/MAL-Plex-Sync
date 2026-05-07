@@ -1,0 +1,10 @@
+services:
+  plex-bridge:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8222}:8222"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data

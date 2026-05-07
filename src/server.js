@@ -22,7 +22,7 @@ import { getAnimeEntry as malGetEntry } from './mal.js';
 import { getTokens, setTokens, getAllCache, deleteCachedIds, getPending, deletePending, setCachedIds, getAllPending } from './storage.js';
 
 const app = express();
-const PORT = process.env.PORT ?? 3000;
+const PORT = process.env.PORT ?? 8222;
 
 // multer: Plex sends multipart/form-data with a `payload` text field and
 // optionally a thumbnail file attachment. Use upload.any() to accept both,
