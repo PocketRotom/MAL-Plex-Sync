@@ -13,7 +13,9 @@
  */
 
 import 'dotenv/config';
+import { createRequire } from 'module';
 import express from 'express';
+const { version } = createRequire(import.meta.url)('../package.json');
 import multer from 'multer';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
@@ -343,7 +345,7 @@ app.get('/', async (req, res) => {
   </style>
 </head>
 <body>
-  <h2>Cached Matches</h2>
+  <h2>MALSync Plex Bridge <span style="font-size:0.6rem;font-weight:normal;color:#aaa;vertical-align:middle">v${version}</span></h2>
   <p class="sub">${entries.length} title${entries.length !== 1 ? 's' : ''} resolved.</p>
   ${entries.length === 0
     ? '<p>No matches cached yet.</p>'
@@ -441,6 +443,7 @@ async function dismissPending(id, btn) {
   } catch(err) { alert('Failed: ' + err.message); btn.disabled = false; }
 }
 </script>
+<footer style="margin-top:48px;padding-top:12px;border-top:1px solid #eee;color:#bbb;font-size:0.78rem">MALSync Plex Bridge v${version}</footer>
 </body>
 </html>`);
 });
