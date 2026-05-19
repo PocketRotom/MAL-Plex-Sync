@@ -240,6 +240,12 @@ export async function handlePlexWebhook(req, res) {
     return res.json({ ignored: true, reason: `media type "${meta.type}" is not episode` });
   }
 
+  // Only act on content from the configured Plex library
+  const requiredLibrary = process.env.PLEX_LIBRARY ?? 'Animes';
+  if (meta.librarySectionTitle !== requiredLibrary) {
+    return res.json({ ignored: true, reason: `library "${meta.librarySectionTitle}" is not "${requiredLibrary}"` });
+  }
+
   // Extract title and episode number.
   // Each season is its own show in Plex, so grandparentTitle is the show title
   // and index is already the correct episode number for the MAL entry.
